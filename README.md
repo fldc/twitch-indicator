@@ -9,6 +9,8 @@ A Linux system tray application that monitors your followed Twitch streams and p
 - **Stream Management**: Click streams in the tray menu to open them directly
 - **OAuth Authentication**: Secure Twitch authentication flow
 - **Configurable Settings**: Customize notifications, refresh intervals, and UI preferences
+- **Custom streaming application**: Launch your preferred streaming app with a single click
+- **Custom chat application**: Launch your preferred chat application with a single click
 - **GTK Settings Window**: Easy-to-use configuration interface
 
 ## Installation
