@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Twitch Indicator
+Comment=Monitor followed Twitch streams and get notifications when streamers go live
+Exec=twitch-indicator
+Icon=applications-internet
+Terminal=false
+Type=Application
+Categories=Network;AudioVideo;
+StartupNotify=true
+StartupWMClass=twitch-indicator
+Keywords=twitch;stream;streaming;notification;tray;
