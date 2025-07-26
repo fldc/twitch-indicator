@@ -15,11 +15,24 @@ A Linux system tray application that monitors your followed Twitch streams and p
 
 ## Installation
 
+### Arch Linux
+
+For Arch Linux users, you can install using the provided PKGBUILD (git version):
+
+```bash
+# Clone the repository
+git clone https://github.com/fldc/twitch-indicator.git
+cd twitch-indicator
+
+# Build and install the package (builds from latest git)
+makepkg -si
+```
+
 ### Prerequisites
 
-- Linux system with GTK3 support
+- Linux system with GTK3 support (GTK4 does not support Ayatana indicators)
 - Rust 1.70+ (for building from source)
-- System tray support (most desktop environments)
+- System tray support (desktop environments with support for Ayatana indicators)
 
 ### Building from Source
 
@@ -33,6 +46,10 @@ cargo build --release
 
 # Run the application
 ./target/release/twitch-indicator
+
+# Install desktop file (optional)
+sudo cp twitch-indicator.desktop /usr/share/applications/
+sudo update-desktop-database
 ```
 
 ### Dependencies
@@ -155,4 +172,3 @@ Key dependencies include:
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
