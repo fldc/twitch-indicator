@@ -40,3 +40,9 @@ logs/
 # Temporary files
 *.tmp
 *.temp
+
+# Arch Linux package build files
+pkg/
+src/
+*.pkg.tar.*
+*.src.tar.gz
