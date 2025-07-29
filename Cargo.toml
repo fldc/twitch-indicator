@@ -1,13 +1,13 @@
 [package]
 name = "twitch-indicator"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "A Twitch stream indicator for Linux with Wayland support"
 license = "GPL-3.0"
 authors = ["Fredrik Storm <fredrik@fldc.se>"]
 homepage = "https://github.com/fldc/twitch-indicator"
 readme = "README.md"
-documentation = "https://github.com/fldc/twitch-indicator/blob/main/README.md"
+documentation = "https://github.com/fldc/twitch-indicator/blob/master/README.md"
 
 [dependencies]
 tokio = { version = "1.40", features = ["full"] }
