@@ -1,6 +1,6 @@
-# Maintainer: Your Name <fredrik@fldc.se>
+# Maintainer: Fredrik Storm <fredrik@fldc.se>
 pkgname=twitch-indicator-git
-pkgver=r1.abcdef1
+pkgver=r7.d9a2350
 pkgrel=1
 pkgdesc="A Linux system tray application that monitors followed Twitch streams"
 arch=('x86_64')
