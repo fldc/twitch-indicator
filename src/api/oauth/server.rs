@@ -111,7 +111,7 @@ async fn handle_https_request(
     debug!("Received HTTPS request: {}", request_line.trim());
 
     if request_line.starts_with("POST /token") {
-        handle_token_post(&mut reader, &mut stream).await
+        handle_token_post(&mut reader).await
     } else {
         serve_callback_html(&mut stream, expected_state).await?;
         Ok(None)
@@ -143,7 +143,6 @@ async fn serve_callback_html(
 /// Handles the POST request containing the OAuth token.
 async fn handle_token_post(
     reader: &mut BufReader<&mut tokio_rustls::server::TlsStream<tokio::net::TcpStream>>,
-    stream: &mut tokio_rustls::server::TlsStream<tokio::net::TcpStream>,
 ) -> Result<Option<TokenResponse>> {
     let mut content_length = 0;
     let mut line = String::new();
@@ -181,6 +180,7 @@ async fn handle_token_post(
 
     // Send success response
     let success_response = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK";
+    let stream = reader.get_mut();
     stream
         .write_all(success_response.as_bytes())
         .await
