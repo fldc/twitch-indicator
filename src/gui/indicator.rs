@@ -9,7 +9,7 @@ use crate::api::{Stream, TwitchClient, User};
 use crate::config::Config;
 use crate::gui::notifications::NotificationManager;
 use crate::gui::settings::SettingsWindow;
-use crate::gui::tray::SystemTray;
+use crate::gui::tray::{SystemTray, Tray};
 
 pub struct TwitchIndicator {
     config: Arc<RwLock<Config>>,

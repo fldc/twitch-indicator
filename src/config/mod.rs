@@ -167,6 +167,6 @@ impl Config {
     /// Opens a stream URL using the configured stream opening settings.
     /// Delegates to StreamService for the actual implementation.
     pub fn open_stream_url(&self, url: &str) -> Result<()> {
-        crate::services::StreamService::open_stream(&self.stream_open, url)
+        Ok(crate::services::StreamService::open_stream(&self.stream_open, url)?)
     }
 }
