@@ -1,8 +1,17 @@
 // Library interface for testing and potential reuse
+// Only expose public API, keep internal modules private
 
-pub mod api;
+mod api;
 pub mod config;
-pub mod constants;
+mod constants;
 pub mod errors;
-pub mod gui;
-pub mod services;
+mod gui;
+mod services;
+
+// Re-export public API types
+pub use config::Config;
+pub use errors::{AppError, ApiError, ConfigError, OAuthError, StreamError};
+
+// For testing purposes only
+#[cfg(test)]
+pub use services::StreamService;

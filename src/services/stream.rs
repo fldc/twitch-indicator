@@ -40,6 +40,10 @@ impl StreamService {
     }
 
     /// Launches a program with arguments and a final URL/channel parameter.
+    ///
+    /// Note: This uses a fire-and-forget approach - the child process is spawned
+    /// and we don't wait for it to exit. This is intentional to avoid blocking
+    /// the UI while external programs (like video players) are running.
     fn launch_program(program: &str, arguments: &[String], final_arg: &str) -> Result<()> {
         let mut args = arguments.to_vec();
         args.push(final_arg.to_string());
@@ -53,7 +57,7 @@ impl StreamService {
             })?;
 
         info!(
-            "Opened stream with {}: {} (args: {:?})",
+            "Spawned process {}: {} (args: {:?})",
             program, final_arg, args
         );
 
@@ -61,17 +65,21 @@ impl StreamService {
     }
 
     /// Opens a URL in the default browser.
+    ///
+    /// Note: This uses a fire-and-forget approach - the browser is launched
+    /// and we don't wait for it to close.
     fn open_in_browser(url: &str) -> Result<()> {
         webbrowser::open(url).map_err(|e| {
             StreamError::BrowserOpenFailed(format!("Failed to open {}: {}", url, e))
         })?;
 
-        info!("Opened stream in default browser: {}", url);
+        info!("Opened URL in default browser: {}", url);
         Ok(())
     }
 
     /// Extracts the channel name from a Twitch URL.
-    /// Returns an empty string if the channel name cannot be extracted.
+    /// Returns an empty string if the channel name cannot be extracted or is invalid.
+    /// Only accepts valid Twitch usernames (alphanumeric, underscore, hyphen, 4-25 chars).
     pub fn extract_channel_name(url: &str) -> String {
         if let Some(pos) = url.find("twitch.tv/") {
             let after_domain = &url[pos + 10..];
@@ -79,11 +87,24 @@ impl StreamService {
                 .find(&['/', '?', '#'][..])
                 .unwrap_or(after_domain.len());
             let channel = &after_domain[..end_pos];
-            if !channel.is_empty() {
+
+            // Validate channel name: alphanumeric, underscore, hyphen only (Twitch rules)
+            // Length: 4-25 characters (Twitch username requirements)
+            if Self::is_valid_twitch_username(channel) {
                 return channel.to_string();
             }
         }
         String::new()
+    }
+
+    /// Validates if a string is a valid Twitch username.
+    /// Rules: 4-25 characters, alphanumeric + underscore + hyphen only
+    fn is_valid_twitch_username(name: &str) -> bool {
+        if name.len() < 4 || name.len() > 25 {
+            return false;
+        }
+
+        name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
     }
 }
 
@@ -191,6 +212,66 @@ mod tests {
         assert_eq!(
             StreamService::extract_channel_name("https://twitch.tv/CoolStreamer123"),
             "CoolStreamer123"
+        );
+    }
+
+    #[test]
+    fn test_extract_channel_name_invalid_usernames() {
+        // Too short (less than 4 chars)
+        assert_eq!(
+            StreamService::extract_channel_name("https://twitch.tv/abc"),
+            ""
+        );
+
+        // Too long (more than 25 chars)
+        assert_eq!(
+            StreamService::extract_channel_name("https://twitch.tv/abcdefghijklmnopqrstuvwxyz"),
+            ""
+        );
+
+        // Invalid characters (spaces)
+        assert_eq!(
+            StreamService::extract_channel_name("https://twitch.tv/user name"),
+            ""
+        );
+
+        // Invalid characters (dots)
+        assert_eq!(
+            StreamService::extract_channel_name("https://twitch.tv/user.name"),
+            ""
+        );
+
+        // Path traversal attempt
+        assert_eq!(
+            StreamService::extract_channel_name("https://twitch.tv/../etc/passwd"),
+            ""
+        );
+
+        // Command injection attempt
+        assert_eq!(
+            StreamService::extract_channel_name("https://twitch.tv/user;rm -rf"),
+            ""
+        );
+
+        // Special characters
+        assert_eq!(
+            StreamService::extract_channel_name("https://twitch.tv/user@domain"),
+            ""
+        );
+    }
+
+    #[test]
+    fn test_extract_channel_name_min_max_length() {
+        // Minimum valid length (4 chars)
+        assert_eq!(
+            StreamService::extract_channel_name("https://twitch.tv/abcd"),
+            "abcd"
+        );
+
+        // Maximum valid length (25 chars)
+        assert_eq!(
+            StreamService::extract_channel_name("https://twitch.tv/abcdefghijklmnopqrstuvwxy"),
+            "abcdefghijklmnopqrstuvwxy"
         );
     }
 }

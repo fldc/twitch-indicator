@@ -1,7 +1,7 @@
 [package]
 name = "twitch-indicator"
 version = "0.1.1"
-edition = "2024"
+edition = "2021"
 description = "A Twitch stream indicator for Linux with Wayland support"
 license = "GPL-3.0"
 authors = ["Fredrik Storm <fredrik@fldc.se>"]

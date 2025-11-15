@@ -3,7 +3,7 @@ use gtk::glib::Propagation;
 use gtk::prelude::*;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::info;
+use tracing::{error, info};
 
 use crate::config::Config;
 
@@ -46,52 +46,52 @@ impl GtkSettingsWindow {
     ) {
         // Use glib's MainContext for async operations instead of spawning new runtime
         glib::MainContext::default().spawn_local(async move {
-            if let Ok(mut config_guard) = config.write().await {
-                config_guard.twitch.refresh_interval_minutes = interval;
-                config_guard.notifications.timeout_ms = timeout;
-                config_guard.general.autostart = autostart;
-                config_guard.general.minimize_to_tray = minimize;
-                config_guard.notifications.enabled = notify_enabled;
-                config_guard.notifications.show_game = show_game;
-                config_guard.notifications.show_viewer_count = show_viewers;
-                config_guard.ui.show_selected_channels_on_top = top_channels;
-                config_guard.ui.dark_theme = dark_theme;
+            let mut config_guard = config.write().await;
+            config_guard.twitch.refresh_interval_minutes = interval;
+            config_guard.notifications.timeout_ms = timeout;
+            config_guard.general.autostart = autostart;
+            config_guard.general.minimize_to_tray = minimize;
+            config_guard.notifications.enabled = notify_enabled;
+            config_guard.notifications.show_game = show_game;
+            config_guard.notifications.show_viewer_count = show_viewers;
+            config_guard.ui.show_selected_channels_on_top = top_channels;
+            config_guard.ui.dark_theme = dark_theme;
 
-                config_guard.stream_open.program = if program_text.is_empty() {
-                    None
-                } else {
-                    Some(program_text)
-                };
+            config_guard.stream_open.program = if program_text.is_empty() {
+                None
+            } else {
+                Some(program_text)
+            };
 
-                config_guard.stream_open.arguments = if args_text.is_empty() {
-                    vec![]
-                } else {
-                    args_text
-                        .split_whitespace()
-                        .map(|s| s.to_string())
-                        .collect()
-                };
+            config_guard.stream_open.arguments = if args_text.is_empty() {
+                vec![]
+            } else {
+                args_text
+                    .split_whitespace()
+                    .map(|s| s.to_string())
+                    .collect()
+            };
 
-                config_guard.stream_open.extra_command = if extra_prog_text.is_empty() {
-                    None
-                } else {
-                    Some(extra_prog_text)
-                };
+            config_guard.stream_open.extra_command = if extra_prog_text.is_empty() {
+                None
+            } else {
+                Some(extra_prog_text)
+            };
 
-                config_guard.stream_open.extra_arguments = if extra_args_text.is_empty() {
-                    vec![]
-                } else {
-                    extra_args_text
-                        .split_whitespace()
-                        .map(|s| s.to_string())
-                        .collect()
-                };
+            config_guard.stream_open.extra_arguments = if extra_args_text.is_empty() {
+                vec![]
+            } else {
+                extra_args_text
+                    .split_whitespace()
+                    .map(|s| s.to_string())
+                    .collect()
+            };
 
-                if let Err(e) = config_guard.save_default().await {
-                    eprintln!("Failed to save settings: {e}");
-                } else {
-                    info!("Settings saved successfully");
-                }
+            if let Err(e) = config_guard.save_default().await {
+                eprintln!("Failed to save settings: {e}");
+                error!("Failed to save settings to file: {}", e);
+            } else {
+                info!("Settings saved successfully");
             }
         });
     }

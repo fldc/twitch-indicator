@@ -118,16 +118,3 @@ pub enum StreamError {
 
 /// Type alias for Results using AppError
 pub type Result<T> = std::result::Result<T, AppError>;
-
-// Convenience conversions
-impl From<String> for OAuthError {
-    fn from(s: String) -> Self {
-        OAuthError::CallbackFailed(s)
-    }
-}
-
-impl From<&str> for OAuthError {
-    fn from(s: &str) -> Self {
-        OAuthError::CallbackFailed(s.to_string())
-    }
-}
