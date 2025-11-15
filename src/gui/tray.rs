@@ -1,7 +1,4 @@
-#![allow(dead_code)]
-
 use anyhow::Result;
-
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info};
@@ -15,12 +12,44 @@ use gtk::prelude::*;
 use crate::api::models::Stream;
 use crate::config::Config;
 
+/// Common interface for system tray implementations.
+pub trait Tray {
+    /// Updates the list of live streams displayed in the tray.
+    fn update_streams(&mut self, streams: Vec<Stream>) -> Result<()>;
+
+    /// Sets the tooltip text for the tray icon.
+    fn set_tooltip(&mut self, tooltip: &str) -> Result<()>;
+
+    /// Returns the current number of live streams.
+    fn stream_count(&self) -> usize;
+}
+
 pub struct SystemTray {
     #[cfg(target_os = "linux")]
     indicator: AppIndicator,
     config: Arc<RwLock<Config>>,
     streams: Vec<Stream>,
     shutdown_tx: Option<tokio::sync::watch::Sender<bool>>,
+}
+
+impl Tray for SystemTray {
+    fn update_streams(&mut self, streams: Vec<Stream>) -> Result<()> {
+        self.streams = streams;
+        self.rebuild_menu()
+    }
+
+    fn set_tooltip(&mut self, tooltip: &str) -> Result<()> {
+        #[cfg(target_os = "linux")]
+        {
+            self.indicator.set_title(tooltip);
+        }
+        debug!("Set tooltip: {}", tooltip);
+        Ok(())
+    }
+
+    fn stream_count(&self) -> usize {
+        self.streams.len()
+    }
 }
 
 impl SystemTray {
@@ -85,11 +114,6 @@ impl SystemTray {
 
         menu.show_all();
         Ok(menu)
-    }
-
-    pub fn update_streams(&mut self, streams: Vec<Stream>) -> Result<()> {
-        self.streams = streams;
-        self.rebuild_menu()
     }
 
     #[cfg(target_os = "linux")]
@@ -233,19 +257,6 @@ impl SystemTray {
             }
         }
     }
-
-    pub fn set_tooltip(&mut self, tooltip: &str) -> Result<()> {
-        #[cfg(target_os = "linux")]
-        {
-            self.indicator.set_title(tooltip);
-        }
-        debug!("Set tooltip: {}", tooltip);
-        Ok(())
-    }
-
-    pub fn stream_count(&self) -> usize {
-        self.streams.len()
-    }
 }
 
 pub struct SimpleTray {
@@ -253,15 +264,8 @@ pub struct SimpleTray {
     streams: Vec<Stream>,
 }
 
-impl SimpleTray {
-    pub fn new(config: Arc<RwLock<Config>>) -> Result<Self> {
-        Ok(Self {
-            config,
-            streams: Vec::new(),
-        })
-    }
-
-    pub fn update_streams(&mut self, streams: Vec<Stream>) -> Result<()> {
+impl Tray for SimpleTray {
+    fn update_streams(&mut self, streams: Vec<Stream>) -> Result<()> {
         self.streams = streams;
         info!("Updated streams: {} live", self.streams.len());
 
@@ -276,13 +280,22 @@ impl SimpleTray {
         Ok(())
     }
 
-    pub fn set_tooltip(&mut self, tooltip: &str) -> Result<()> {
+    fn set_tooltip(&mut self, tooltip: &str) -> Result<()> {
         debug!("Tooltip: {}", tooltip);
         Ok(())
     }
 
-    pub fn stream_count(&self) -> usize {
+    fn stream_count(&self) -> usize {
         self.streams.len()
+    }
+}
+
+impl SimpleTray {
+    pub fn new(config: Arc<RwLock<Config>>) -> Result<Self> {
+        Ok(Self {
+            config,
+            streams: Vec::new(),
+        })
     }
 
     pub async fn run<F>(self, mut _menu_handler: F) -> Result<()>

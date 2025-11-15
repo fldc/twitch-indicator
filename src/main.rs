@@ -1,6 +1,8 @@
 mod api;
 mod config;
+mod constants;
 mod gui;
+mod services;
 
 use anyhow::Result;
 use clap::Parser;

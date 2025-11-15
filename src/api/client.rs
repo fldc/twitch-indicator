@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use anyhow::{Context, Result, anyhow};
 use reqwest::{Client, StatusCode};
 use std::sync::Arc;

@@ -1,13 +1,10 @@
-#![allow(dead_code)]
-
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::fs;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
-const APP_NAME: &str = "twitch-indicator";
-const CONFIG_FILE: &str = "config.toml";
+use crate::constants::{APP_NAME, CONFIG_FILE, DEFAULT_NOTIFICATION_TIMEOUT_MS, DEFAULT_REFRESH_INTERVAL_MINUTES};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -60,16 +57,16 @@ impl Default for Config {
         Self {
             twitch: TwitchConfig {
                 client_id: "pdnu3rmmjndvi58vd5f19l5rxqvu6c".to_string(),
-                redirect_uri: "https://localhost:17563".to_string(),
+                redirect_uri: crate::constants::REDIRECT_URI.to_string(),
                 access_token: None,
                 refresh_token: None,
-                refresh_interval_minutes: 2,
+                refresh_interval_minutes: DEFAULT_REFRESH_INTERVAL_MINUTES,
             },
             notifications: NotificationConfig {
                 enabled: true,
                 show_game: true,
                 show_viewer_count: true,
-                timeout_ms: 5000,
+                timeout_ms: DEFAULT_NOTIFICATION_TIMEOUT_MS,
             },
             ui: UiConfig {
                 show_selected_channels_on_top: true,
@@ -167,69 +164,9 @@ impl Config {
         self.twitch.access_token.is_some()
     }
 
+    /// Opens a stream URL using the configured stream opening settings.
+    /// Delegates to StreamService for the actual implementation.
     pub fn open_stream_url(&self, url: &str) -> Result<()> {
-        let channel_name = Self::extract_channel_name(url);
-
-        if let Some(program) = &self.stream_open.program {
-            if !program.trim().is_empty() {
-                let mut args = self.stream_open.arguments.clone();
-                args.push(url.to_string());
-
-                std::process::Command::new(program)
-                    .args(&args)
-                    .spawn()
-                    .with_context(|| format!("Failed to launch {program} with URL: {url}"))?;
-
-                info!("Opened stream with {}: {} (args: {:?})", program, url, args);
-            } else {
-                webbrowser::open(url)
-                    .with_context(|| format!("Failed to open URL in default browser: {url}"))?;
-
-                info!("Opened stream in default browser: {}", url);
-            }
-        } else {
-            webbrowser::open(url)
-                .with_context(|| format!("Failed to open URL in default browser: {url}"))?;
-
-            info!("Opened stream in default browser: {}", url);
-        }
-
-        if let Some(extra_program) = &self.stream_open.extra_command {
-            if !extra_program.trim().is_empty() && !channel_name.is_empty() {
-                let mut extra_args = self.stream_open.extra_arguments.clone();
-                extra_args.push(channel_name.clone());
-
-                match std::process::Command::new(extra_program)
-                    .args(&extra_args)
-                    .spawn()
-                {
-                    Ok(_) => {
-                        info!(
-                            "Started extra command {}: {} (args: {:?})",
-                            extra_program, channel_name, extra_args
-                        );
-                    }
-                    Err(e) => {
-                        error!("Failed to launch extra command {}: {}", extra_program, e);
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn extract_channel_name(url: &str) -> String {
-        if let Some(pos) = url.find("twitch.tv/") {
-            let after_domain = &url[pos + 10..];
-            let end_pos = after_domain
-                .find(&['/', '?', '#'][..])
-                .unwrap_or(after_domain.len());
-            let channel = &after_domain[..end_pos];
-            if !channel.is_empty() {
-                return channel.to_string();
-            }
-        }
-        String::new()
+        crate::services::StreamService::open_stream(&self.stream_open, url)
     }
 }

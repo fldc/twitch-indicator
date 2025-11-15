@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use anyhow::Result;
 use notify_rust::{Notification, Timeout, Urgency};
 use std::collections::HashSet;

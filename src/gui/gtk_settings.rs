@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use anyhow::Result;
 use gtk::glib::Propagation;
 use gtk::prelude::*;
@@ -25,6 +23,78 @@ impl GtkSettingsWindow {
             config,
             temp_config,
         })
+    }
+
+    /// Saves the settings from UI controls to the configuration.
+    /// This consolidates the duplicate logic between Apply and OK buttons.
+    fn save_settings_from_ui(
+        config: Arc<RwLock<Config>>,
+        interval: u64,
+        timeout: u32,
+        autostart: bool,
+        minimize: bool,
+        notify_enabled: bool,
+        show_game: bool,
+        show_viewers: bool,
+        top_channels: bool,
+        dark_theme: bool,
+        program_text: String,
+        args_text: String,
+        extra_prog_text: String,
+        extra_args_text: String,
+    ) {
+        std::thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                if let Ok(mut config_guard) = config.try_write() {
+                    config_guard.twitch.refresh_interval_minutes = interval;
+                    config_guard.notifications.timeout_ms = timeout;
+                    config_guard.general.autostart = autostart;
+                    config_guard.general.minimize_to_tray = minimize;
+                    config_guard.notifications.enabled = notify_enabled;
+                    config_guard.notifications.show_game = show_game;
+                    config_guard.notifications.show_viewer_count = show_viewers;
+                    config_guard.ui.show_selected_channels_on_top = top_channels;
+                    config_guard.ui.dark_theme = dark_theme;
+
+                    config_guard.stream_open.program = if program_text.is_empty() {
+                        None
+                    } else {
+                        Some(program_text)
+                    };
+
+                    config_guard.stream_open.arguments = if args_text.is_empty() {
+                        vec![]
+                    } else {
+                        args_text
+                            .split_whitespace()
+                            .map(|s| s.to_string())
+                            .collect()
+                    };
+
+                    config_guard.stream_open.extra_command = if extra_prog_text.is_empty() {
+                        None
+                    } else {
+                        Some(extra_prog_text)
+                    };
+
+                    config_guard.stream_open.extra_arguments = if extra_args_text.is_empty() {
+                        vec![]
+                    } else {
+                        extra_args_text
+                            .split_whitespace()
+                            .map(|s| s.to_string())
+                            .collect()
+                    };
+
+                    if let Err(e) = config_guard.save_default().await {
+                        eprintln!("Failed to save settings: {e}");
+                    } else {
+                        info!("Settings saved successfully");
+                    }
+                }
+            });
+        });
     }
 
     pub fn show_sync(&mut self) -> Result<()> {
@@ -232,139 +302,43 @@ impl GtkSettingsWindow {
 
         let apply_config = config_arc.clone();
         apply_button.connect_clicked(move |_| {
-            let config = apply_config.clone();
-            let interval = interval_spin_clone.value() as u64;
-            let timeout = timeout_spin_clone.value() as u32;
-            let autostart = autostart_check_clone.is_active();
-            let minimize = minimize_check_clone.is_active();
-            let notify_enabled = notify_enabled_clone.is_active();
-            let show_game = show_game_check_clone.is_active();
-            let show_viewers = show_viewers_check_clone.is_active();
-            let top_channels = top_channels_check_clone.is_active();
-            let dark_theme = dark_theme_check_clone.is_active();
-            let program_text = program_entry_clone.text();
-            let args_text = args_entry_clone.text();
-            let extra_prog_text = extra_prog_entry_clone.text();
-            let extra_args_text = extra_args_entry_clone.text();
-
-            std::thread::spawn(move || {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(async {
-                    if let Ok(mut config_guard) = config.try_write() {
-                        config_guard.twitch.refresh_interval_minutes = interval;
-                        config_guard.notifications.timeout_ms = timeout;
-                        config_guard.general.autostart = autostart;
-                        config_guard.general.minimize_to_tray = minimize;
-                        config_guard.notifications.enabled = notify_enabled;
-                        config_guard.notifications.show_game = show_game;
-                        config_guard.notifications.show_viewer_count = show_viewers;
-                        config_guard.ui.show_selected_channels_on_top = top_channels;
-                        config_guard.ui.dark_theme = dark_theme;
-
-                        config_guard.stream_open.program = if program_text.is_empty() {
-                            None
-                        } else {
-                            Some(program_text.to_string())
-                        };
-                        config_guard.stream_open.arguments = if args_text.is_empty() {
-                            vec![]
-                        } else {
-                            args_text
-                                .split_whitespace()
-                                .map(|s| s.to_string())
-                                .collect()
-                        };
-                        config_guard.stream_open.extra_command = if extra_prog_text.is_empty() {
-                            None
-                        } else {
-                            Some(extra_prog_text.to_string())
-                        };
-                        config_guard.stream_open.extra_arguments = if extra_args_text.is_empty() {
-                            vec![]
-                        } else {
-                            extra_args_text
-                                .split_whitespace()
-                                .map(|s| s.to_string())
-                                .collect()
-                        };
-
-                        if let Err(e) = config_guard.save_default().await {
-                            eprintln!("Failed to save settings: {e}");
-                        } else {
-                            println!("Settings applied successfully");
-                        }
-                    }
-                });
-            });
+            Self::save_settings_from_ui(
+                apply_config.clone(),
+                interval_spin_clone.value() as u64,
+                timeout_spin_clone.value() as u32,
+                autostart_check_clone.is_active(),
+                minimize_check_clone.is_active(),
+                notify_enabled_clone.is_active(),
+                show_game_check_clone.is_active(),
+                show_viewers_check_clone.is_active(),
+                top_channels_check_clone.is_active(),
+                dark_theme_check_clone.is_active(),
+                program_entry_clone.text().to_string(),
+                args_entry_clone.text().to_string(),
+                extra_prog_entry_clone.text().to_string(),
+                extra_args_entry_clone.text().to_string(),
+            );
         });
 
         let ok_config = config_arc.clone();
         let window_clone2 = window.clone();
         ok_button.connect_clicked(move |_| {
-            let config = ok_config.clone();
-            let interval = interval_spin.value() as u64;
-            let timeout = timeout_spin.value() as u32;
-            let autostart = autostart_check.is_active();
-            let minimize = minimize_check.is_active();
-            let notify_enabled = notify_enabled.is_active();
-            let show_game = show_game_check.is_active();
-            let show_viewers = show_viewers_check.is_active();
-            let top_channels = top_channels_check.is_active();
-            let dark_theme = dark_theme_check.is_active();
-            let program_text = program_entry.text();
-            let args_text = args_entry.text();
-            let extra_prog_text = extra_prog_entry.text();
-            let extra_args_text = extra_args_entry.text();
-
-            std::thread::spawn(move || {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(async {
-                    if let Ok(mut config_guard) = config.try_write() {
-                        config_guard.twitch.refresh_interval_minutes = interval;
-                        config_guard.notifications.timeout_ms = timeout;
-                        config_guard.general.autostart = autostart;
-                        config_guard.general.minimize_to_tray = minimize;
-                        config_guard.notifications.enabled = notify_enabled;
-                        config_guard.notifications.show_game = show_game;
-                        config_guard.notifications.show_viewer_count = show_viewers;
-                        config_guard.ui.show_selected_channels_on_top = top_channels;
-                        config_guard.ui.dark_theme = dark_theme;
-
-                        config_guard.stream_open.program = if program_text.is_empty() {
-                            None
-                        } else {
-                            Some(program_text.to_string())
-                        };
-                        config_guard.stream_open.arguments = if args_text.is_empty() {
-                            vec![]
-                        } else {
-                            args_text
-                                .split_whitespace()
-                                .map(|s| s.to_string())
-                                .collect()
-                        };
-                        config_guard.stream_open.extra_command = if extra_prog_text.is_empty() {
-                            None
-                        } else {
-                            Some(extra_prog_text.to_string())
-                        };
-                        config_guard.stream_open.extra_arguments = if extra_args_text.is_empty() {
-                            vec![]
-                        } else {
-                            extra_args_text
-                                .split_whitespace()
-                                .map(|s| s.to_string())
-                                .collect()
-                        };
-
-                        if let Err(e) = config_guard.save_default().await {
-                            eprintln!("Failed to save settings: {e}");
-                        } else {
-                            println!("Settings saved and applied");
-                        }
-                    }
-                });
-            });
+            Self::save_settings_from_ui(
+                ok_config.clone(),
+                interval_spin.value() as u64,
+                timeout_spin.value() as u32,
+                autostart_check.is_active(),
+                minimize_check.is_active(),
+                notify_enabled.is_active(),
+                show_game_check.is_active(),
+                show_viewers_check.is_active(),
+                top_channels_check.is_active(),
+                dark_theme_check.is_active(),
+                program_entry.text().to_string(),
+                args_entry.text().to_string(),
+                extra_prog_entry.text().to_string(),
+                extra_args_entry.text().to_string(),
+            );
 
             window_clone2.close();
         });

@@ -5,3 +5,4 @@ pub mod settings;
 pub mod tray;
 
 pub use indicator::TwitchIndicator;
+pub use tray::Tray;
