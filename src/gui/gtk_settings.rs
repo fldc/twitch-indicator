@@ -57,6 +57,11 @@ impl GtkSettingsWindow {
             config_guard.ui.show_selected_channels_on_top = top_channels;
             config_guard.ui.dark_theme = dark_theme;
 
+            // Apply dark theme setting immediately
+            if let Some(gtk_settings) = gtk::Settings::default() {
+                gtk_settings.set_property("gtk-application-prefer-dark-theme", dark_theme);
+            }
+
             config_guard.stream_open.program = if program_text.is_empty() {
                 None
             } else {

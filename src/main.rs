@@ -65,8 +65,16 @@ async fn main() -> Result<()> {
 
     if args.gtk_settings {
         let config = Config::load_or_create(args.config).await?;
-        let config_arc = Arc::new(RwLock::new(config));
 
+        // Apply dark theme preference for GTK settings window
+        #[cfg(target_os = "linux")]
+        {
+            if let Some(gtk_settings) = gtk::Settings::default() {
+                gtk_settings.set_property("gtk-application-prefer-dark-theme", config.ui.dark_theme);
+            }
+        }
+
+        let config_arc = Arc::new(RwLock::new(config));
         let mut gtk_settings = crate::gui::gtk_settings::GtkSettingsWindow::new(config_arc).await?;
         gtk_settings.show_sync()?;
 
@@ -74,6 +82,15 @@ async fn main() -> Result<()> {
     }
 
     let config = Config::load_or_create(args.config).await?;
+
+    // Apply dark theme preference for main application
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(gtk_settings) = gtk::Settings::default() {
+            gtk_settings.set_property("gtk-application-prefer-dark-theme", config.ui.dark_theme);
+        }
+    }
+
     let config = Arc::new(RwLock::new(config));
 
     if let Some(export_path) = args.export_settings {
