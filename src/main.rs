@@ -38,7 +38,7 @@ struct Args {
 }
 
 /// Apply GTK dark theme preference.
-/// Returns true if the theme was applied successfully, false otherwise.
+/// Returns true if the theme was applied, false if GTK is not available.
 #[cfg(target_os = "linux")]
 fn apply_gtk_theme(dark_theme: bool) -> bool {
     use gtk::prelude::*;
@@ -49,17 +49,9 @@ fn apply_gtk_theme(dark_theme: bool) -> bool {
     }
 
     if let Some(settings) = gtk::Settings::default() {
-        // Convert bool to glib::Value for property setting
-        match settings.set_property(GTK_DARK_THEME_PROPERTY, dark_theme) {
-            Ok(_) => {
-                info!("Applied GTK theme preference: dark_theme={}", dark_theme);
-                true
-            }
-            Err(e) => {
-                warn!("Failed to set GTK dark theme preference: {}", e);
-                false
-            }
-        }
+        settings.set_property(GTK_DARK_THEME_PROPERTY, dark_theme);
+        info!("Applied GTK theme preference: dark_theme={}", dark_theme);
+        true
     } else {
         warn!("Cannot set GTK theme: GTK Settings not available");
         false

@@ -50,10 +50,8 @@ impl GtkSettingsWindow {
         // This ensures GTK uses the new theme right away
         if gtk::is_initialized() {
             if let Some(gtk_settings) = gtk::Settings::default() {
-                match gtk_settings.set_property(GTK_DARK_THEME_PROPERTY, dark_theme) {
-                    Ok(_) => info!("Applied GTK theme preference: dark_theme={}", dark_theme),
-                    Err(e) => warn!("Failed to set GTK dark theme preference: {}", e),
-                }
+                gtk_settings.set_property(GTK_DARK_THEME_PROPERTY, dark_theme);
+                info!("Applied GTK theme preference: dark_theme={}", dark_theme);
             } else {
                 warn!("Cannot set GTK theme: GTK Settings not available");
             }
