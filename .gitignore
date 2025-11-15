@@ -42,7 +42,9 @@ logs/
 *.temp
 
 # Arch Linux package build files
+# Note: makepkg creates pkg/ and src/ directories during builds
+# We only want to ignore the package build src/, not our Rust src/
 pkg/
-src/
+/makepkg-src/
 *.pkg.tar.*
 *.src.tar.gz

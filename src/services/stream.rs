@@ -1,7 +1,7 @@
-use anyhow::{Context, Result};
 use tracing::{error, info};
 
 use crate::config::StreamOpenConfig;
+use crate::errors::{Result, StreamError};
 
 /// Service for handling stream-related operations.
 pub struct StreamService;
@@ -47,11 +47,9 @@ impl StreamService {
         std::process::Command::new(program)
             .args(&args)
             .spawn()
-            .with_context(|| {
-                format!(
-                    "Failed to launch {} with argument: {}",
-                    program, final_arg
-                )
+            .map_err(|e| StreamError::ProgramLaunchFailed {
+                program: program.to_string(),
+                source: e,
             })?;
 
         info!(
@@ -64,8 +62,9 @@ impl StreamService {
 
     /// Opens a URL in the default browser.
     fn open_in_browser(url: &str) -> Result<()> {
-        webbrowser::open(url)
-            .with_context(|| format!("Failed to open URL in default browser: {url}"))?;
+        webbrowser::open(url).map_err(|e| {
+            StreamError::BrowserOpenFailed(format!("Failed to open {}: {}", url, e))
+        })?;
 
         info!("Opened stream in default browser: {}", url);
         Ok(())
@@ -93,26 +92,105 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_extract_channel_name() {
+    fn test_extract_channel_name_standard_url() {
         assert_eq!(
             StreamService::extract_channel_name("https://www.twitch.tv/example"),
             "example"
         );
+    }
+
+    #[test]
+    fn test_extract_channel_name_with_path() {
         assert_eq!(
             StreamService::extract_channel_name("https://twitch.tv/example/videos"),
             "example"
         );
         assert_eq!(
+            StreamService::extract_channel_name("https://twitch.tv/example/clips"),
+            "example"
+        );
+    }
+
+    #[test]
+    fn test_extract_channel_name_with_query() {
+        assert_eq!(
             StreamService::extract_channel_name("https://twitch.tv/example?param=value"),
             "example"
         );
         assert_eq!(
+            StreamService::extract_channel_name("https://twitch.tv/example?foo=bar&baz=qux"),
+            "example"
+        );
+    }
+
+    #[test]
+    fn test_extract_channel_name_with_fragment() {
+        assert_eq!(
             StreamService::extract_channel_name("https://twitch.tv/example#fragment"),
             "example"
         );
+    }
+
+    #[test]
+    fn test_extract_channel_name_complex_url() {
+        assert_eq!(
+            StreamService::extract_channel_name("https://www.twitch.tv/example/videos?filter=archives&sort=time#section"),
+            "example"
+        );
+    }
+
+    #[test]
+    fn test_extract_channel_name_no_protocol() {
+        assert_eq!(
+            StreamService::extract_channel_name("twitch.tv/example"),
+            "example"
+        );
+    }
+
+    #[test]
+    fn test_extract_channel_name_invalid_domain() {
         assert_eq!(
             StreamService::extract_channel_name("https://example.com"),
             ""
+        );
+        assert_eq!(
+            StreamService::extract_channel_name("https://youtube.com/watch?v=123"),
+            ""
+        );
+    }
+
+    #[test]
+    fn test_extract_channel_name_empty_channel() {
+        assert_eq!(
+            StreamService::extract_channel_name("https://twitch.tv/"),
+            ""
+        );
+    }
+
+    #[test]
+    fn test_extract_channel_name_special_characters() {
+        assert_eq!(
+            StreamService::extract_channel_name("https://twitch.tv/user_name123"),
+            "user_name123"
+        );
+        assert_eq!(
+            StreamService::extract_channel_name("https://twitch.tv/user-name"),
+            "user-name"
+        );
+    }
+
+    #[test]
+    fn test_extract_channel_name_edge_cases() {
+        // Empty string
+        assert_eq!(StreamService::extract_channel_name(""), "");
+
+        // Just domain
+        assert_eq!(StreamService::extract_channel_name("twitch.tv"), "");
+
+        // Case sensitivity preserved
+        assert_eq!(
+            StreamService::extract_channel_name("https://twitch.tv/CoolStreamer123"),
+            "CoolStreamer123"
         );
     }
 }
