@@ -9,11 +9,14 @@ use anyhow::Result;
 use clap::Parser;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, level_filters::LevelFilter};
+use tracing::{info, warn, level_filters::LevelFilter};
 use tracing_subscriber::{Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::config::Config;
 use crate::gui::indicator::TwitchIndicator;
+
+#[cfg(target_os = "linux")]
+const GTK_DARK_THEME_PROPERTY: &str = "gtk-application-prefer-dark-theme";
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -32,6 +35,35 @@ struct Args {
 
     #[arg(long)]
     import_settings: Option<String>,
+}
+
+/// Apply GTK dark theme preference.
+/// Returns true if the theme was applied successfully, false otherwise.
+#[cfg(target_os = "linux")]
+fn apply_gtk_theme(dark_theme: bool) -> bool {
+    use gtk::prelude::*;
+
+    if !gtk::is_initialized() {
+        warn!("Cannot set GTK theme: GTK not initialized");
+        return false;
+    }
+
+    if let Some(settings) = gtk::Settings::default() {
+        // Convert bool to glib::Value for property setting
+        match settings.set_property(GTK_DARK_THEME_PROPERTY, dark_theme) {
+            Ok(_) => {
+                info!("Applied GTK theme preference: dark_theme={}", dark_theme);
+                true
+            }
+            Err(e) => {
+                warn!("Failed to set GTK dark theme preference: {}", e);
+                false
+            }
+        }
+    } else {
+        warn!("Cannot set GTK theme: GTK Settings not available");
+        false
+    }
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -63,32 +95,19 @@ async fn main() -> Result<()> {
 
     info!("Starting Twitch Indicator v{}", env!("CARGO_PKG_VERSION"));
 
+    // Load configuration once
+    let config = Config::load_or_create(args.config).await?;
+
+    // Apply dark theme preference for GTK interface
+    #[cfg(target_os = "linux")]
+    apply_gtk_theme(config.ui.dark_theme);
+
     if args.gtk_settings {
-        let config = Config::load_or_create(args.config).await?;
-
-        // Apply dark theme preference for GTK settings window
-        #[cfg(target_os = "linux")]
-        {
-            if let Some(gtk_settings) = gtk::Settings::default() {
-                gtk_settings.set_property("gtk-application-prefer-dark-theme", config.ui.dark_theme);
-            }
-        }
-
         let config_arc = Arc::new(RwLock::new(config));
         let mut gtk_settings = crate::gui::gtk_settings::GtkSettingsWindow::new(config_arc).await?;
         gtk_settings.show_sync()?;
 
         return Ok(());
-    }
-
-    let config = Config::load_or_create(args.config).await?;
-
-    // Apply dark theme preference for main application
-    #[cfg(target_os = "linux")]
-    {
-        if let Some(gtk_settings) = gtk::Settings::default() {
-            gtk_settings.set_property("gtk-application-prefer-dark-theme", config.ui.dark_theme);
-        }
     }
 
     let config = Arc::new(RwLock::new(config));

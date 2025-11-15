@@ -3,9 +3,11 @@ use gtk::glib::Propagation;
 use gtk::prelude::*;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::config::Config;
+
+const GTK_DARK_THEME_PROPERTY: &str = "gtk-application-prefer-dark-theme";
 
 pub struct GtkSettingsWindow {
     config: Arc<RwLock<Config>>,
@@ -44,6 +46,21 @@ impl GtkSettingsWindow {
         extra_prog_text: String,
         extra_args_text: String,
     ) {
+        // Apply dark theme setting immediately BEFORE async save
+        // This ensures GTK uses the new theme right away
+        if gtk::is_initialized() {
+            if let Some(gtk_settings) = gtk::Settings::default() {
+                match gtk_settings.set_property(GTK_DARK_THEME_PROPERTY, dark_theme) {
+                    Ok(_) => info!("Applied GTK theme preference: dark_theme={}", dark_theme),
+                    Err(e) => warn!("Failed to set GTK dark theme preference: {}", e),
+                }
+            } else {
+                warn!("Cannot set GTK theme: GTK Settings not available");
+            }
+        } else {
+            warn!("Cannot set GTK theme: GTK not initialized");
+        }
+
         // Use glib's MainContext for async operations instead of spawning new runtime
         glib::MainContext::default().spawn_local(async move {
             let mut config_guard = config.write().await;
@@ -56,11 +73,6 @@ impl GtkSettingsWindow {
             config_guard.notifications.show_viewer_count = show_viewers;
             config_guard.ui.show_selected_channels_on_top = top_channels;
             config_guard.ui.dark_theme = dark_theme;
-
-            // Apply dark theme setting immediately
-            if let Some(gtk_settings) = gtk::Settings::default() {
-                gtk_settings.set_property("gtk-application-prefer-dark-theme", dark_theme);
-            }
 
             config_guard.stream_open.program = if program_text.is_empty() {
                 None
