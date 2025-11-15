@@ -13,7 +13,7 @@ use tracing::{info, level_filters::LevelFilter};
 use tracing_subscriber::{Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::config::Config;
-use crate::gui::TwitchIndicator;
+use crate::gui::indicator::TwitchIndicator;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
